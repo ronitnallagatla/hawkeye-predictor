@@ -149,3 +149,9 @@ class WeightedLRURP(LRURP):
     type = "WeightedLRURP"
     cxx_class = 'gem5::replacement_policy::WeightedLRU'
     cxx_header = "mem/cache/replacement_policies/weighted_lru_rp.hh"
+
+# TODO: class def for Hawkeye
+class HawkeyeRP(BaseReplacementPolicy):
+    type = "HawkeyeRP"
+    cxx_class = 'gem5::replacement_policy::Hawkeye'
+    cxx_header = "mem/cache/replacement_policies/hawkeye_rp.hh"

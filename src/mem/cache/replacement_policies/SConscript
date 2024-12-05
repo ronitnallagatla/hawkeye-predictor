@@ -28,6 +28,7 @@
 
 Import('*')
 
+# TODO: Add HawkeyeRP
 SimObject('ReplacementPolicies.py', sim_objects=[
     'BaseReplacementPolicy', 'DuelingRP', 'FIFORP', 'SecondChanceRP',
     'LFURP', 'LRURP', 'BIPRP', 'MRURP', 'RandomRP', 'BRRIPRP', 'SHiPRP',
@@ -45,5 +46,7 @@ Source('second_chance_rp.cc')
 Source('ship_rp.cc')
 Source('tree_plru_rp.cc')
 Source('weighted_lru_rp.cc')
+# TODO: add hawkeye
+# Source('hawkeye_rp.cc')
 
 GTest('replaceable_entry.test', 'replaceable_entry.test.cc')
