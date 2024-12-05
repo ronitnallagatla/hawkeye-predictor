@@ -123,18 +123,23 @@ def config_cache(options, system):
                                    **_get_cache_opts('l2', options))
 
         system.tol2bus = L2XBar(clk_domain = system.cpu_clk_domain)
-        system.l2.cpu_side = system.tol2bus.mem_side_ports
-        system.l2.mem_side = system.membus.cpu_side_ports
 
-    if options.l3cache:
-        system.ll = ll_cache_class(clk_domain=system.cpu_clk_domain,
+        if options.l3cache:
+            system.ll = ll_cache_class(clk_domain=system.cpu_clk_domain,
                                    **_get_cache_opts('l3', options))
 
-        # system.ll.replacement_policy = 'HawkeyeRP'
-        system.tollbus = L2XBar(clk_domain=system.cpu_clk_domain)
-        system.l2.mem_side = system.tollbus.cpu_side_ports
-        system.ll.cpu_side = system.tollbus.mem_side_ports
-        system.ll.mem_side = system.membus.cpu_side_ports
+            if options.l3_rp:
+                system.ll.replacement_policy = options.l3_rp
+
+            system.tollbus = L3XBar(clk_domain=system.cpu_clk_domain)
+            system.l2.cpu_side = system.tol2bus.mem_side_ports
+            system.l2.mem_side = system.tollbus.cpu_side_ports
+
+            system.ll.cpu_side = system.tollbus.mem_side_ports
+            system.ll.mem_side = system.membus.cpu_side_ports
+        else:
+            system.l2.cpu_side = system.tol2bus.mem_side_ports
+            system.l2.mem_side = system.membus.cpu_side_ports
 
     if options.memchecker:
         system.memchecker = MemChecker()
@@ -197,11 +202,11 @@ def config_cache(options, system):
                         ExternalCache("cpu%d.dcache" % i))
 
         system.cpu[i].createInterruptController()
-        if options.l3cache:
-            system.cpu[i].connectAllPorts(
-                system.tollbus.cpu_side_ports,
-                system.membus
-            )
+        # if options.l3cache:
+        #     system.cpu[i].connectAllPorts(
+        #         system.tollbus.cpu_side_ports,
+        #         system.membus
+        #     )
         if options.l2cache:
             system.cpu[i].connectAllPorts(
                 system.tol2bus.cpu_side_ports,

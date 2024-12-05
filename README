@@ -1,3 +1,19 @@
+
+# Hawkeye Predictor
+
+## Build
+
+``` console
+scons-3 USE_HDF5=0 -j `nproc` ./build/ECE565-X86/gem5.opt
+```
+
+## Run SPEC Benchmarks
+
+``` console
+./build/ECE565-ARM/gem5.opt configs/spec/spec_se.py --cpu-type=MinorCPU -b <benchmark-name> --maxinsts=10000000
+```
+
+---
 This is the gem5 simulator.
 
 The main website can be found at http://www.gem5.org
