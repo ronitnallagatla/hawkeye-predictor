@@ -98,8 +98,9 @@ def config_cache(options, system):
         dcache_class, icache_class, l2_cache_class, walk_cache_class = \
             core.HPI_DCache, core.HPI_ICache, core.HPI_L2, None
     else:
-        dcache_class, icache_class, l2_cache_class, walk_cache_class = \
-            L1_DCache, L1_ICache, L2Cache, None
+        dcache_class, icache_class, l2_cache_class, ll_cache_class, \
+        walk_cache_class = \
+            L1_DCache, L1_ICache, L2Cache, LLCache, None
 
         if buildEnv['TARGET_ISA'] in ['x86', 'riscv']:
             walk_cache_class = PageTableWalkerCache
@@ -124,6 +125,16 @@ def config_cache(options, system):
         system.tol2bus = L2XBar(clk_domain = system.cpu_clk_domain)
         system.l2.cpu_side = system.tol2bus.mem_side_ports
         system.l2.mem_side = system.membus.cpu_side_ports
+
+    if options.l3cache:
+        system.ll = ll_cache_class(clk_domain=system.cpu_clk_domain,
+                                   **_get_cache_opts('l3', options))
+
+        # system.ll.replacement_policy = 'HawkeyeRP'
+        system.tollbus = L2XBar(clk_domain=system.cpu_clk_domain)
+        system.l2.mem_side = system.tollbus.cpu_side_ports
+        system.ll.cpu_side = system.tollbus.mem_side_ports
+        system.ll.mem_side = system.membus.cpu_side_ports
 
     if options.memchecker:
         system.memchecker = MemChecker()
@@ -186,6 +197,11 @@ def config_cache(options, system):
                         ExternalCache("cpu%d.dcache" % i))
 
         system.cpu[i].createInterruptController()
+        if options.l3cache:
+            system.cpu[i].connectAllPorts(
+                system.tollbus.cpu_side_ports,
+                system.membus
+            )
         if options.l2cache:
             system.cpu[i].connectAllPorts(
                 system.tol2bus.cpu_side_ports,
