@@ -4,7 +4,7 @@
 ## Build
 
 ``` console
-scons-3 USE_HDF5=0 -j `nproc` ./build/ECE565-X86/gem5.opt
+scons-3 USE_HDF5=0 -j `nproc` ./build/ECE565-ARM/gem5.opt
 ```
 
 ## Run SPEC Benchmarks
