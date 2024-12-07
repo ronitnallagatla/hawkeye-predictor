@@ -1,7 +1,12 @@
 #ifndef __MEM_CACHE_REPLACEMENT_POLICIES_HAWKEYE_RP_HH__
 #define __MEM_CACHE_REPLACEMENT_POLICIES_HAWKEYE_RP_HH__
 
+#include <unordered_map>
+#include <vector>
+
 #include "mem/cache/replacement_policies/base.hh"
+#include "mem/cache/replacement_policies/optgen.hh"
+#include "mem/packet.hh"
 
 namespace gem5
 {
@@ -15,17 +20,22 @@ namespace replacement_policy
 class Hawkeye : public Base
 {
   protected:
-    /** LRU-specific implementation of replacement data. */
     struct HawkeyeReplData : ReplacementData
     {
-        /** Tick on which the entry was last touched. */
-        Tick lastTouchTick;
+      uint64_t pc;
+      uint32_t load_timestamp;
 
-        /**
-         * Default constructor. Invalidate data.
-         */
-        HawkeyeReplData() : lastTouchTick(0) {}
+      HawkeyeReplData() : pc(0), load_timestamp(0) {}
     };
+
+    std::vector<std::vector<uint32_t>> rrpv;
+
+    std::unordered_map<uint64_t, int8_t> predictor;
+
+    std::vector<OPTgen> optgen_per_set;
+
+    uint32_t global_timestamp;
+    uint16_t hashPC(uint64_t pc) const;
 
   public:
     typedef HawkeyeRPParams Params;
@@ -33,8 +43,6 @@ class Hawkeye : public Base
     ~Hawkeye() = default;
 
     /**
-     * Invalidate replacement data to set it as the next probable victim.
-     * Sets its last touch tick as the starting tick.
      *
      * @param replacement_data Replacement data to be invalidated.
      */
@@ -43,24 +51,27 @@ class Hawkeye : public Base
 
     /**
      * Touch an entry to update its replacement data.
-     * Sets its last touch tick as the current tick.
      *
      * @param replacement_data Replacement data to be touched.
      */
+
+    void touch(const std::shared_ptr<ReplacementData>& replacement_data,
+        const PacketPtr pkt) override;
     void touch(const std::shared_ptr<ReplacementData>& replacement_data) const
                                                                      override;
 
     /**
-     * Reset replacement data. Used when an entry is inserted.
-     * Sets its last touch tick as the current tick.
      *
      * @param replacement_data Replacement data to be reset.
      */
+
+    void reset(const std::shared_ptr<ReplacementData>& replacement_data,
+        const PacketPtr pkt) override;
     void reset(const std::shared_ptr<ReplacementData>& replacement_data) const
                                                                      override;
 
     /**
-     * Find replacement victim using LRU timestamps.
+     * Find replacement victim in set using Hawkeye policy.
      *
      * @param candidates Replacement candidates, selected by indexing policy.
      * @return Replacement entry to be replaced.

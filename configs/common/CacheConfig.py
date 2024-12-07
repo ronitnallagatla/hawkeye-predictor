@@ -128,8 +128,9 @@ def config_cache(options, system):
             system.ll = ll_cache_class(clk_domain=system.cpu_clk_domain,
                                    **_get_cache_opts('l3', options))
 
-            if options.l3_rp:
-                system.ll.replacement_policy = options.l3_rp
+            if options.l3_rp != '':
+                if options.l3_rp == 'Hawkeye':
+                    system.ll.replacement_policy = HawkeyeRP()
 
             system.tollbus = L2XBar(clk_domain=system.cpu_clk_domain)
             system.l2.cpu_side = system.tol2bus.mem_side_ports

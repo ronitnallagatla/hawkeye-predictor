@@ -155,3 +155,13 @@ class HawkeyeRP(BaseReplacementPolicy):
     type = "HawkeyeRP"
     cxx_class = 'gem5::replacement_policy::Hawkeye'
     cxx_header = "mem/cache/replacement_policies/hawkeye_rp.hh"
+
+    llc_sets = Param.Unsigned(2048, "Number of LLC sets")
+    llc_assoc = Param.Unsigned(16, "Number of LLC ways")
+
+    max_rrpv = Param.Unsigned(7, "Max RRPV")
+    shct_size = Param.Unsigned(2048, "Number of SHCT entries")
+    max_shct = Param.Unsigned(31, "Max SHCT value")
+
+    # One occupancy vector for each cache set --> each 128 entries
+    occupancy_vec_size = Param.Unsigned(128, "Size of Occupancy Vector")

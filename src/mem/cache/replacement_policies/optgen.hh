@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <vector>
 
+#include "mem/cache/replacement_policies/base.hh"
+
 namespace gem5 {
 
 GEM5_DEPRECATED_NAMESPACE(ReplacementPolicy, replacement_policy);
