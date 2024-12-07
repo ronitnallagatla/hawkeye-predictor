@@ -131,7 +131,7 @@ def config_cache(options, system):
             if options.l3_rp:
                 system.ll.replacement_policy = options.l3_rp
 
-            system.tollbus = L3XBar(clk_domain=system.cpu_clk_domain)
+            system.tollbus = L2XBar(clk_domain=system.cpu_clk_domain)
             system.l2.cpu_side = system.tol2bus.mem_side_ports
             system.l2.mem_side = system.tollbus.cpu_side_ports
 
@@ -202,12 +202,12 @@ def config_cache(options, system):
                         ExternalCache("cpu%d.dcache" % i))
 
         system.cpu[i].createInterruptController()
-        # if options.l3cache:
-        #     system.cpu[i].connectAllPorts(
-        #         system.tollbus.cpu_side_ports,
-        #         system.membus
-        #     )
-        if options.l2cache:
+        if options.l3cache and options.l2cache:
+            system.cpu[i].connectAllPorts(
+                system.tollbus.cpu_side_ports,
+                system.membus.cpu_side_ports, system.membus.mem_side_ports
+            )
+        elif options.l2cache:
             system.cpu[i].connectAllPorts(
                 system.tol2bus.cpu_side_ports,
                 system.membus.cpu_side_ports, system.membus.mem_side_ports)

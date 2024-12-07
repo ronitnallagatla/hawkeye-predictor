@@ -76,8 +76,8 @@ class LLCache(Cache):
     tag_latency = 20
     data_latency = 20
     response_latency = 20
-    mshrs = 512
-    tgts_per_mshr = 20
+    mshrs = 20
+    tgts_per_mshr = 12
     write_buffers = 256
 
 class IOCache(Cache):
