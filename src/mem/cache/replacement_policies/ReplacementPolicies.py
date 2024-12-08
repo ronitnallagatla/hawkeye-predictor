@@ -156,8 +156,9 @@ class HawkeyeRP(BaseReplacementPolicy):
     cxx_class = 'gem5::replacement_policy::Hawkeye'
     cxx_header = "mem/cache/replacement_policies/hawkeye_rp.hh"
 
+    cache_line_size = Param.Int(Parent.cache_line_size, "block size in bytes")
     llc_sets = Param.Unsigned(2048, "Number of LLC sets")
-    llc_assoc = Param.Unsigned(16, "Number of LLC ways")
+    llc_ways = Param.Unsigned(16, "Number of LLC ways")
 
     max_rrpv = Param.Unsigned(7, "Max RRPV")
     shct_size = Param.Unsigned(2048, "Number of SHCT entries")

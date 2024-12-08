@@ -129,8 +129,13 @@ def config_cache(options, system):
                                    **_get_cache_opts('l3', options))
 
             if options.l3_rp != '':
-                if options.l3_rp == 'Hawkeye':
+                if options.l3_rp == "hawkeye":
                     system.ll.replacement_policy = HawkeyeRP()
+                elif options.l3_rp == "ship":
+                    system.ll.replacement_policy = SHiPPCRP();
+                elif options.l3_rp == "brrip":
+                    system.ll.replacement_policy = BRRIPRP();
+
 
             system.tollbus = L2XBar(clk_domain=system.cpu_clk_domain)
             system.l2.cpu_side = system.tol2bus.mem_side_ports

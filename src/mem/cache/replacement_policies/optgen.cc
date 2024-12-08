@@ -17,18 +17,18 @@ void OPTgen::add_cache_access(uint32_t timestamp) {
 }
 
 bool OPTgen::get_decision(uint32_t curr_timestamp, uint32_t prev_timestamp) {
-  bool is_miss = false;
+  bool is_hit = true;
 
   for (uint32_t i = prev_timestamp; i != curr_timestamp;
        i = (i + 1) % occupancy_vec.size()) {
     if (occupancy_vec[i] >= cache_capacity) {
-      is_miss = true;
+      is_hit = false;
       num_misses++;
       break;
     }
   }
 
-  if (!is_miss) {
+  if (is_hit) {
 
     for (uint32_t i = prev_timestamp; i != curr_timestamp;
          i = (i + 1) % occupancy_vec.size()) {
@@ -36,7 +36,7 @@ bool OPTgen::get_decision(uint32_t curr_timestamp, uint32_t prev_timestamp) {
     }
   }
 
-  return is_miss;
+  return is_hit;
 }
 
 } // namespace replacement_policy
