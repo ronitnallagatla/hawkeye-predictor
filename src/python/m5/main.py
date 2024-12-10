@@ -406,7 +406,9 @@ def main():
     sys.path = [ os.path.dirname(sys.argv[0]) ] + sys.path
 
     filename = sys.argv[0]
-    filedata = open(filename, 'r').read()
+    filedata = open(filename).read()
+    with open(filename, 'rb') as fd:
+        filedata = fd.read().decode('utf-8')
     filecode = compile(filedata, filename, 'exec')
     scope = { '__file__' : filename,
               '__name__' : '__m5_main__' }
