@@ -7,288 +7,271 @@
 namespace gem5
 {
 
-GEM5_DEPRECATED_NAMESPACE (ReplacementPolicy, replacement_policy);
+GEM5_DEPRECATED_NAMESPACE(ReplacementPolicy, replacement_policy);
+
 namespace replacement_policy
 {
 
-Hawkeye::Hawkeye (const Params &p)
-    : Base (p), predictor (p.max_shct, p.shct_size), num_sets (p.llc_sets),
-      num_ways (p.llc_ways), cache_line_size (p.cache_line_size),
-      occupancy_vec_size (p.occupancy_vec_size)
+Hawkeye::Hawkeye(const Params &p)
+    : Base(p),
+      predictor(p.max_shct, p.shct_size),
+      num_sets(p.llc_sets),
+      num_ways(p.llc_ways),
+      cache_line_size(p.cache_line_size),
+      occupancy_vec_size(p.occupancy_vec_size)
 {
-
-  rrpv.resize (num_sets);
-  for (auto &set_counters : rrpv)
-    {
-      set_counters.resize (num_ways, SatCounter8 (3, 7));
+    rrpv.resize(num_sets);
+    for (auto &set_counters : rrpv) {
+        set_counters.resize(num_ways, SatCounter8(3, 7));
     }
 
-  free_ways.resize (num_sets, std::vector<bool> (num_ways, true));
+    free_ways.resize(num_sets, std::vector<bool>(num_ways, true));
 
-  optgen_per_set.reserve (num_sets);
-  for (uint32_t i = 0; i < num_sets; ++i)
-    {
-      optgen_per_set.emplace_back (num_ways, occupancy_vec_size);
+    optgen_per_set.reserve(num_sets);
+    for (uint32_t i = 0; i < num_sets; ++i) {
+        optgen_per_set.emplace_back(num_ways, occupancy_vec_size);
     }
 
-  global_timestamp.resize (num_sets, 0);
+    global_timestamp.resize(num_sets, 0);
 }
 
 bool
-Hawkeye::Predictor::get_prediction (uint64_t pc)
+Hawkeye::Predictor::get_prediction(uint64_t pc)
 {
-  if (predictor.find (pc) != predictor.end ()
-      && predictor[pc] < (max_shct + 1) / 2)
-    return false;
-  return true;
+    if (predictor.find(pc) != predictor.end() &&
+        predictor[pc] < (max_shct + 1) / 2)
+        return false;
+    return true;
 }
 
 void
-Hawkeye::Predictor::train (uint64_t pc)
+Hawkeye::Predictor::train(uint64_t pc)
 {
-  // init
-  if (predictor.find (pc) == predictor.end ())
-    predictor[pc] = (max_shct + 1) / 2;
+    // init
+    if (predictor.find(pc) == predictor.end())
+        predictor[pc] = (max_shct + 1) / 2;
 
-  // update
-  if (predictor[pc] < max_shct)
-    predictor[pc]++;
-  else
-    predictor[pc] = max_shct;
+    // update
+    if (predictor[pc] < max_shct)
+        predictor[pc]++;
+    else
+        predictor[pc] = max_shct;
 }
 
 void
-Hawkeye::Predictor::detrain (uint64_t pc)
+Hawkeye::Predictor::detrain(uint64_t pc)
 {
-  // init
-  if (predictor.find (pc) == predictor.end ())
-    predictor[pc] = (max_shct + 1) / 2;
+    // init
+    if (predictor.find(pc) == predictor.end())
+        predictor[pc] = (max_shct + 1) / 2;
 
-  // update
-  if (predictor[pc] != 0)
-    predictor[pc]--;
+    // update
+    if (predictor[pc] != 0)
+        predictor[pc]--;
 }
 
 void
-Hawkeye::invalidate (const std::shared_ptr<ReplacementData> &replacement_data)
+Hawkeye::invalidate(const std::shared_ptr<ReplacementData> &replacement_data)
 {
-
-  auto repl_data
-      = std::static_pointer_cast<HawkeyeReplData> (replacement_data);
-  free_ways[repl_data->getSet ()][repl_data->getWay ()] = false;
+    auto repl_data =
+        std::static_pointer_cast<HawkeyeReplData>(replacement_data);
+    free_ways[repl_data->getSet()][repl_data->getWay()] = true;
+    rrpv[repl_data->getSet()][repl_data->getWay()].saturate();
 }
 
 void
-Hawkeye::touch (const std::shared_ptr<ReplacementData> &replacement_data) const
+Hawkeye::touch(const std::shared_ptr<ReplacementData> &replacement_data) const
 {
-  panic ("Cant train Hawkeye without access information.");
+    panic("Cant train Hawkeye without access information.");
 }
 
 void
-Hawkeye::touch (const std::shared_ptr<ReplacementData> &replacement_data,
-                const PacketPtr pkt)
+Hawkeye::touch(const std::shared_ptr<ReplacementData> &replacement_data,
+               const PacketPtr pkt)
 {
-  uint32_t prev_timestamp;
-  uint32_t curr_timestamp;
-  uint32_t index;
-  bool opt_hit;
-  bool cache_friendly;
+    uint32_t prev_timestamp;
+    uint32_t curr_timestamp;
+    uint32_t index;
+    bool opt_hit;
+    bool cache_friendly;
 
-  auto casted_replacement_data
-      = std::static_pointer_cast<HawkeyeReplData> (replacement_data);
+    auto casted_replacement_data =
+        std::static_pointer_cast<HawkeyeReplData>(replacement_data);
 
-  // std::cout << "TOUCHING Set " << casted_replacement_data->getSet() << " Way
-  // " << casted_replacement_data->getWay() << std::endl;
+    // std::cout << "TOUCHING Set " << casted_replacement_data->getSet() << "
+    // Way " << casted_replacement_data->getWay() << std::endl;
 
-  // Get previous timestamp using replacement data
-  prev_timestamp = casted_replacement_data->load_timestamp;
+    // Get previous timestamp using replacement data
+    prev_timestamp = casted_replacement_data->load_timestamp;
 
-  // Get current timestamp using global timestamp vector at index given by pkt
-  index = casted_replacement_data->getSet ();
-  curr_timestamp = global_timestamp[index];
-  global_timestamp[index] = (global_timestamp[index] + 1) % occupancy_vec_size;
-  casted_replacement_data->load_timestamp = global_timestamp[index];
+    // Get current timestamp using global timestamp vector at index given by
+    // pkt
+    index = casted_replacement_data->getSet();
+    curr_timestamp = global_timestamp[index];
+    global_timestamp[index] =
+        (global_timestamp[index] + 1) % occupancy_vec_size;
+    casted_replacement_data->load_timestamp = global_timestamp[index];
 
-  optgen_per_set[index].add_cache_access (curr_timestamp);
+    optgen_per_set[index].add_cache_access(curr_timestamp);
 
-  // Call get_decision on optvector given the pkt's index occupancy vector
-  opt_hit
-      = optgen_per_set[index].get_decision (curr_timestamp, prev_timestamp);
+    // Call get_decision on optvector given the pkt's index occupancy vector
+    opt_hit =
+        optgen_per_set[index].get_decision(curr_timestamp, prev_timestamp);
 
-  // CHANGE THIS - Assumes predictor[] returns 1 or 0, but eventually
-  // we will change this to implement detraining and have it return a number.
-  // Maybe make predictor a class
-  // cache_friendly =
-  // predictor[static_cast<SignatureType>(replacement_data->pc)];
-  cache_friendly = predictor.get_prediction (casted_replacement_data->pc);
+    // CHANGE THIS - Assumes predictor[] returns 1 or 0, but eventually
+    // we will change this to implement detraining and have it return a number.
+    // Maybe make predictor a class
+    // cache_friendly =
+    // predictor[static_cast<SignatureType>(replacement_data->pc)];
+    cache_friendly = predictor.get_prediction(casted_replacement_data->pc);
 
-  // Update RRPV values
-  if (!cache_friendly)
-    {
-      rrpv[index][casted_replacement_data->getWay ()] = SatCounter8 (3, 7);
-    }
-  else
-    {
-      if (!opt_hit)
-        {
-          for (int i = 0; i < num_ways; i++)
-            rrpv[index][i]++;
+    // Update RRPV values
+    if (!cache_friendly) {
+        rrpv[index][casted_replacement_data->getWay()] = SatCounter8(3, 7);
+    } else {
+        if (!opt_hit) {
+            for (uint8_t i = 0; i < num_ways; i++) {
+                if (rrpv[index][i] < 6) {
+                    rrpv[index][i]++;
+                }
+            }
         }
-      rrpv[index][casted_replacement_data->getWay ()] = SatCounter8 (3, 0);
+        rrpv[index][casted_replacement_data->getWay()] = SatCounter8(3, 0);
     }
 }
 
 void
-Hawkeye::reset (const std::shared_ptr<ReplacementData> &replacement_data) const
+Hawkeye::reset(const std::shared_ptr<ReplacementData> &replacement_data) const
 {
-  panic ("Cant train Hawkeye without access information.");
+    panic("Cant train Hawkeye without access information.");
 }
 
 void
-Hawkeye::reset (const std::shared_ptr<ReplacementData> &replacement_data,
-                const PacketPtr pkt)
+Hawkeye::reset(const std::shared_ptr<ReplacementData> &replacement_data,
+               const PacketPtr pkt)
 {
-  // set replacement_data set,way
-  uint32_t way;
-  uint32_t index;
-  uint8_t cache_friendly;
+    // set replacement_data set,way
+    uint32_t way;
+    uint32_t index;
+    uint8_t cache_friendly;
 
-  auto casted_replacement_data
-      = std::static_pointer_cast<HawkeyeReplData> (replacement_data);
+    auto casted_replacement_data =
+        std::static_pointer_cast<HawkeyeReplData>(replacement_data);
 
-  index = (pkt->getAddr () >> floorLog2 (cache_line_size)) & (num_sets - 1);
+    index = (pkt->getAddr() >> floorLog2(cache_line_size)) & (num_sets - 1);
 
-  std::cout << "Set " << casted_replacement_data->getSet () << ":";
-  for (auto i = 0; i < num_ways; i++)
-    {
-      std::cout << " " << free_ways[casted_replacement_data->getSet ()][i];
-    }
-  std::cout << std::endl;
+    // std::cout << "Set " << casted_replacement_data->getSet() << ":";
+    // for (auto i = 0; i < num_ways; i++) {
+    //     std::cout << " " << free_ways[index][i];
+    // }
+    // std::cout << std::endl;
 
-  for (way = 0; way < num_ways; way++)
-    {
-      if (free_ways[index][way] == 0)
-        {
-          free_ways[index][way] = true;
-          break;
+    for (way = 0; way < num_ways; way++) {
+        if (free_ways[index][way]) {
+            free_ways[index][way] = false;
+            break;
         }
     }
 
-  if (way == num_ways)
-    {
-      std::cout << "ERROR: No free ways? Assigning way = 0" << std::endl;
-      way = 0;
-      free_ways[index][way] = true;
+    if (way == num_ways) {
+        std::cout << "ERROR: No free ways? Assigning way = 0" << std::endl;
+        way = 0;
+        free_ways[index][way] = false;
     }
 
-  // casted_replacement_data->setPosition(index, way);
-  casted_replacement_data->set = index;
-  casted_replacement_data->way = way;
-  // std::cout << "RESET Assigning Set " << index << " Way " << way <<
-  // std::endl;
+    casted_replacement_data->set = index;
+    casted_replacement_data->way = way;
+    // std::cout << "RESET Assigning Set " << index << " Way " << way <<
+    // std::endl;
 
-  optgen_per_set[index].add_cache_access (global_timestamp[index]);
-  global_timestamp[index] = (global_timestamp[index] + 1) % occupancy_vec_size;
-  casted_replacement_data->load_timestamp = global_timestamp[index];
+    optgen_per_set[index].add_cache_access(global_timestamp[index]);
+    global_timestamp[index] =
+        (global_timestamp[index] + 1) % occupancy_vec_size;
+    casted_replacement_data->load_timestamp = global_timestamp[index];
 
-  // optgen_per_set[index].add_cache_access(curr_timestamp);
-  optgen_per_set[index].add_cache_access (global_timestamp[index]);
+    // optgen_per_set[index].add_cache_access(curr_timestamp);
+    optgen_per_set[index].add_cache_access(global_timestamp[index]);
 
-  if (pkt->req->hasPC ())
-    casted_replacement_data->pc = pkt->req->getPC ();
-  else
-    casted_replacement_data->pc = 0;
+    if (pkt->req->hasPC())
+        casted_replacement_data->pc = pkt->req->getPC();
+    else
+        casted_replacement_data->pc = 0;
 
-  // SAME CHANGE AS ABOVE - Make this an actual value once you start
-  // training/detraining cache_friendly =
-  // predictor[static_cast<SignatureType>(replacement_data->pc)];
-  cache_friendly = predictor.get_prediction (casted_replacement_data->pc);
+    // SAME CHANGE AS ABOVE - Make this an actual value once you start
+    // training/detraining cache_friendly =
+    // predictor[static_cast<SignatureType>(replacement_data->pc)];
+    cache_friendly = predictor.get_prediction(casted_replacement_data->pc);
 
-  if (!cache_friendly)
-    {
-      rrpv[index][casted_replacement_data->getWay ()] = SatCounter8 (3, 7);
-    }
-  else
-    {
-      for (int i = 0; i < num_ways; i++)
-        {
-          rrpv[index][i]++;
+    if (!cache_friendly) {
+        rrpv[index][casted_replacement_data->getWay()] = SatCounter8(3, 7);
+    } else {
+        for (int i = 0; i < num_ways; i++) {
+            if ((uint8_t)rrpv[index][i] < 6) {
+                rrpv[index][i]++;
+            }
         }
-      rrpv[index][casted_replacement_data->getWay ()] = SatCounter8 (3, 0);
+        rrpv[index][casted_replacement_data->getWay()] = SatCounter8(3, 0);
     }
 }
 
 ReplaceableEntry *
-Hawkeye::getVictim (const ReplacementCandidates &candidates) const
+Hawkeye::getVictim(const ReplacementCandidates &candidates) const
 {
-  uint8_t evicted_rrpv;
-  uint32_t evicted_way;
+    int evicted_rrpv;
+    uint32_t evicted_way;
 
-  auto repl_data_init = std::static_pointer_cast<HawkeyeReplData> (
-      candidates[0]->replacementData);
+    auto repl_data_init = std::static_pointer_cast<HawkeyeReplData>(
+        candidates[0]->replacementData);
 
-  for (evicted_rrpv = 7; evicted_rrpv > 0; evicted_rrpv--)
-    {
-      for (evicted_way = 0; evicted_way < candidates.size (); evicted_way++)
-        {
-          auto repl_data = std::static_pointer_cast<HawkeyeReplData> (
-              candidates[evicted_way]->replacementData);
-          assert (repl_data != nullptr);
-          assert (repl_data->getSet () >= 0);
-          assert (repl_data->getWay () >= 0);
-          assert (repl_data->getSet () < num_sets);
-          assert (repl_data->getWay () < num_ways
-                  || !(std::cerr << "Num ways: " << num_ways
-                                 << "repl_data way: " << repl_data->getWay ()
-                                 << std::endl));
-          assert (rrpv.size () == num_sets);
-          assert (rrpv[repl_data->getSet ()].size () == num_ways);
-          if ((uint8_t)rrpv[repl_data->getSet ()][repl_data->getWay ()]
-              == evicted_rrpv)
-            {
-              free_ways[repl_data->getSet ()][evicted_way] = false;
-              // Update predictor
-              if (evicted_rrpv == 7)
-                {
-                  // predictor[candidates[evicted_way]->pc] = 1;
-                  // CHANGE THIS TO TRAIN INSTEAD OF SET TO 1
-                  predictor.train (repl_data->pc);
-                }
-              else
-                {
-                  // CHANGE THIS TO DETRAIN INSTEAD OF SET TO 0
-                  predictor.detrain (repl_data->pc);
+    for (evicted_rrpv = 7; evicted_rrpv >= 0; evicted_rrpv--) {
+        for (evicted_way = 0; evicted_way < candidates.size(); evicted_way++) {
+            auto repl_data = std::static_pointer_cast<HawkeyeReplData>(
+                candidates[evicted_way]->replacementData);
+            assert(repl_data != nullptr);
+            assert(repl_data->getSet() >= 0);
+            assert(repl_data->getWay() >= 0);
+            assert(repl_data->getSet() < num_sets);
+            assert(repl_data->getWay() < num_ways ||
+                   !(std::cerr << "Num ways: " << num_ways << "repl_data way: "
+                               << repl_data->getWay() << std::endl));
+            assert(rrpv.size() == num_sets);
+            assert(rrpv[repl_data->getSet()].size() == num_ways);
+            if ((int)rrpv[repl_data->getSet()][repl_data->getWay()] ==
+                evicted_rrpv) {
+                free_ways[repl_data->getSet()][evicted_way] = true;
+                rrpv[repl_data->getSet()][evicted_way].saturate();
+
+                // Update predictor
+                if (evicted_rrpv == 7) {
+                    predictor.train(repl_data->pc);
+                } else {
+                    predictor.detrain(repl_data->pc);
                 }
 
-              // return evcited candidates
-              return candidates[evicted_way];
+                // return evcited candidates
+                return candidates[evicted_way];
             }
         }
     }
 
-  std::cout << "ERROR: Loop somehow didn't return anything" << std::endl;
-  return candidates[0];
+    std::cout << "ERROR: Loop somehow didn't return anything" << std::endl;
+    return candidates[0];
 
-  auto repl_data = std::static_pointer_cast<HawkeyeReplData> (
-      candidates[evicted_way]->replacementData);
+    auto repl_data = std::static_pointer_cast<HawkeyeReplData>(
+        candidates[evicted_way]->replacementData);
 
-  free_ways[repl_data->getSet ()][evicted_way] = false;
+    free_ways[repl_data->getSet()][evicted_way] = true;
+    rrpv[repl_data->getSet()][evicted_way].saturate();
 
-  // Update predictor
-  if (evicted_rrpv == 7)
-    {
-      // predictor[candidates[evicted_way]->pc] = 1;
-      // CHANGE THIS TO TRAIN INSTEAD OF SET TO 1
-      predictor.train (repl_data->pc);
-    }
-  else
-    {
-      // CHANGE THIS TO DETRAIN INSTEAD OF SET TO 0
-      predictor.detrain (repl_data->pc);
+    // Update predictor
+    if (evicted_rrpv == 7) {
+        predictor.train(repl_data->pc);
+    } else {
+        predictor.detrain(repl_data->pc);
     }
 
-  // return evcited candidates
-  return candidates[evicted_way];
+    // return evcited candidates
+    return candidates[evicted_way];
 }
 
 /*
@@ -312,9 +295,9 @@ uint32_t evicted_rrpv, uint32_t evicted_way)
 */
 
 std::shared_ptr<ReplacementData>
-Hawkeye::instantiateEntry ()
+Hawkeye::instantiateEntry()
 {
-  return std::make_shared<HawkeyeReplData> ();
+    return std::make_shared<HawkeyeReplData>();
 }
 
 } // namespace replacement_policy
