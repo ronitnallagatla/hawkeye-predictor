@@ -396,7 +396,7 @@ def get_process(options, target_isa="arm"):
     bzip2 = Process()
     bzip2_dir = '401.bzip2/'
     bzip2.executable =  exe_dir_06+bzip2_dir+\
-        'exe/bzip2' 
+        'exe/bzip2' + exe_suffix
     data= bench_dir_06+bzip2_dir+'data/ref/input/input.source'
     bzip2.cmd = [bzip2.executable] + [data, '1']
     bzip2.output = 'input.source.out'
@@ -405,7 +405,7 @@ def get_process(options, target_isa="arm"):
     gcc = Process()
     gcc_dir = '403.gcc/'
     gcc.executable =  exe_dir_06+gcc_dir+\
-        'exe/gcc' 
+        'exe/gcc'+exe_suffix
     data= bench_dir_06+gcc_dir+'/data/ref/input/166.i'
     output=output_dir+'166.s'
     gcc.cmd = [gcc.executable] + [data]+['-o',output] + ['-quiet'] \
@@ -443,13 +443,32 @@ def get_process(options, target_isa="arm"):
     milc.input=stdin
     milc.output='su3imp.out'
 
+    #434.zeusmp
+    zeusmp=Process()
+    zeusmp_dir='434.zeusmp/'
+    zeusmp.executable = bench_dir_06+zeusmp_dir+\
+        'exe/zeusmp_base.amd64' + benchtype
+    data=bench_dir_06+zeusmp_dir+'data/ref/input/zmp_inp'
+    zeusmp.cmd = [zeusmp.executable] + ['zmp_inp']
+    zeusmp.cwd = bench_dir_06+zeusmp_dir+'/run'
+    zeusmp.output = 'zeusmp.stdout'
+
+    #435.gromacs
+    gromacs = Process()
+    gromacs_dir='435.gromacs/'
+    gromacs.executable = exe_dir_06+gromacs_dir+\
+        '/exe/gromacs_base.amd64' + benchtype
+    data=bench_dir_06+gromacs_dir+'data/ref/input/gromacs.tpr'
+    gromacs.cwd = bench_dir_06+gromacs_dir+'run'
+    gromacs.cmd = [gromacs.executable] + ['-silent','-deffnm',data,'-nice','0']
+
     #436.cactusADM
     cactusADM = Process()
     cactusADM_dir = '436.cactusADM/'
     cactusADM.executable =  exe_dir_06+cactusADM_dir+\
       'exe/cactusADM' + exe_suffix
     data= bench_dir_06+cactusADM_dir+'/data/ref/input/benchADM.par'
-    cactusADM.cmd = [cactusADM.executable] + ['benchADM.par']
+    cactusADM.cmd = [cactusADM.executable] + [data]
     cactusADM.cwd = bench_dir_06+cactusADM_dir + 'run'
     cactusADM.output = 'benchADM.out'
 
@@ -475,6 +494,28 @@ def get_process(options, target_isa="arm"):
     namd.output='namd.stdout'
 
 
+    #445.gobmk
+    gobmk=Process()
+    gobmk_dir = '445.gobmk/'
+    gobmk.executable = bench_dir_06+gobmk_dir+\
+        '/exe/gobmk_base.amd64' + benchtype
+    stdin=bench_dir_06+gobmk_dir+'/data/ref/input/13x13.tst'
+    gobmk.cmd = [gobmk.executable]+['--quiet','--mode','gtp']
+    gobmk.input=stdin
+    gobmk.output='capture.out'
+
+
+    #450.soplex
+    soplex=Process()
+    soplex_dir = '450.soplex/'
+    soplex.executable = bench_dir_06+soplex_dir+\
+        '/run/soplex_base.amd64' + benchtype
+    data=bench_dir_06+soplex_dir+'/data/ref/input/ref.mps'
+    soplex.cmd = [soplex.executable]+['-m10000','ref.mps']
+    soplex.cwd = bench_dir_06+soplex_dir+"/run/"
+    soplex.output = 'test.out'
+
+
     #453.povray
     povray=Process()
     povray_dir = '453.povray/'
@@ -484,6 +525,14 @@ def get_process(options, target_isa="arm"):
     povray.cmd = [povray.executable]+[data]
     povray.output = 'SPEC-benchmark-ref.stdout'
 
+    #454.calculix
+    calculix=Process()
+    calculix_dir='454.calculix/'
+    calculix.executable = bench_dir_06+calculix_dir+\
+        '/exe/calculix_base.amd64' + benchtype
+    data=bench_dir_06+calculix_dir+'/data/ref/input/hyperviscoplastic.inp'
+    calculix.cmd = [calculix.executable]+['-i',data]
+    calculix.output = 'beampic.log'
 
 
     #456.hmmer
@@ -506,6 +555,34 @@ def get_process(options, target_isa="arm"):
     sjeng.cmd = [sjeng.executable]+[data]
     sjeng.output = 'ref.out'
 
+    #459.GemsFDTD
+    GemsFDTD=Process()
+    GemsFDTD_dir = '459.GemsFDTD/'
+    GemsFDTD.executable =  bench_dir_06+GemsFDTD_dir+\
+        '/exe/GemsFDTD_base.amd64' + benchtype
+    GemsFDTD.cmd = [GemsFDTD.executable]
+    GemsFDTD.output = 'ref.log'
+
+    #464.h264ref
+    h264ref=Process()
+    h264_dir = '464.h264ref/'
+    h264ref.executable = bench_dir_06+h264_dir+\
+        '/run/h264ref_base.amd64' + benchtype
+    data=bench_dir_06+h264_dir+\
+        '/data/ref/input/foreman_ref_encoder_baseline.cfg'
+    h264ref.cmd = [h264ref.executable]+['-d',data]
+    h264ref.cwd = bench_dir_06+h264_dir+'/run'
+    h264ref.output = 'foreman_ref_encoder_baseline.out'
+
+
+    #462.libquantum
+    libquantum=Process()
+    libquantum_dir ='462.libquantum/'
+    libquantum.executable = bench_dir_06+libquantum_dir+\
+        '/exe/libquantum_base.amd64' + benchtype
+    libquantum.cmd = [libquantum.executable],'33','5'
+    libquantum.output = 'ref.out'
+
 
     #465.tonto
     tonto=Process()
@@ -513,7 +590,7 @@ def get_process(options, target_isa="arm"):
     tonto.executable = exe_dir_06+tonto_dir+\
         'exe/tonto' + exe_suffix
     data= bench_dir_06+tonto_dir+'/data/ref/input/foreman_ref_encoder_baseline.cfg'
-    tonto.cmd = [tonto.executable]
+    tonto.cmd = [tonto.executable] + [data]
     tonto.cwd = bench_dir_06+tonto_dir+'run'
     tonto.output = 'tonto.out'
 
@@ -646,7 +723,7 @@ def get_process(options, target_isa="arm"):
        process = zeusmp
     elif options.benchmark == 'gromacs':
        process = gromacs
-       shutil.copy(os.path.join(process.cwd,"gromacs.tpr"),os.getcwd())
+       # shutil.copy(os.path.join(process.cwd,"gromacs.tpr"),os.getcwd())
     elif options.benchmark == 'cactusADM':
        process = cactusADM
     elif options.benchmark == 'leslie3d':
