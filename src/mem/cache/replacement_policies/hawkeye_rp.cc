@@ -118,11 +118,6 @@ Hawkeye::touch(const std::shared_ptr<ReplacementData> &replacement_data,
     opt_hit =
         optgen_per_set[index].get_decision(curr_timestamp, prev_timestamp);
 
-    // CHANGE THIS - Assumes predictor[] returns 1 or 0, but eventually
-    // we will change this to implement detraining and have it return a number.
-    // Maybe make predictor a class
-    // cache_friendly =
-    // predictor[static_cast<SignatureType>(replacement_data->pc)];
     cache_friendly = predictor.get_prediction(casted_replacement_data->pc);
 
     // Update RRPV values
@@ -189,7 +184,6 @@ Hawkeye::reset(const std::shared_ptr<ReplacementData> &replacement_data,
         (global_timestamp[index] + 1) % occupancy_vec_size;
     casted_replacement_data->load_timestamp = global_timestamp[index];
 
-    // optgen_per_set[index].add_cache_access(curr_timestamp);
     optgen_per_set[index].add_cache_access(global_timestamp[index]);
 
     if (pkt->req->hasPC())
@@ -197,9 +191,6 @@ Hawkeye::reset(const std::shared_ptr<ReplacementData> &replacement_data,
     else
         casted_replacement_data->pc = 0;
 
-    // SAME CHANGE AS ABOVE - Make this an actual value once you start
-    // training/detraining cache_friendly =
-    // predictor[static_cast<SignatureType>(replacement_data->pc)];
     cache_friendly = predictor.get_prediction(casted_replacement_data->pc);
 
     if (!cache_friendly) {
@@ -228,8 +219,6 @@ Hawkeye::getVictim(const ReplacementCandidates &candidates) const
             auto repl_data = std::static_pointer_cast<HawkeyeReplData>(
                 candidates[evicted_way]->replacementData);
             assert(repl_data != nullptr);
-            assert(repl_data->getSet() >= 0);
-            assert(repl_data->getWay() >= 0);
             assert(repl_data->getSet() < num_sets);
             assert(repl_data->getWay() < num_ways ||
                    !(std::cerr << "Num ways: " << num_ways << "repl_data way: "
@@ -273,26 +262,6 @@ Hawkeye::getVictim(const ReplacementCandidates &candidates) const
     // return evcited candidates
     return candidates[evicted_way];
 }
-
-/*
-void
-Hawkeye::update_state(const std::shared_ptr<HawkeyeReplData>& replacement_data,
-uint32_t evicted_rrpv, uint32_t evicted_way)
-{
-  free_ways[replacement_data->getSet()][evicted_way] = false;
-
-  // Update predictor
-  if (evicted_rrpv == 7) {
-    // predictor[candidates[evicted_way]->pc] = 1;
-    // CHANGE THIS TO TRAIN INSTEAD OF SET TO 1
-    predictor.train(replacement_data->pc);
-  } else {
-    // CHANGE THIS TO DETRAIN INSTEAD OF SET TO 0
-    predictor.detrain(replacement_data->pc);
-  }
-
-}
-*/
 
 std::shared_ptr<ReplacementData>
 Hawkeye::instantiateEntry()

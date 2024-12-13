@@ -74,10 +74,6 @@ class Hawkeye : public Base
     int cache_line_size;
     uint32_t occupancy_vec_size;
 
-    // void update_state(const std::shared_ptr<HawkeyeReplData>&
-    // replacement_data,
-    //  uint32_t evicted_rrpv, uint32_t evicted_way);
-
   public:
     typedef HawkeyeRPParams Params;
     Hawkeye(const Params &p);
